@@ -12,7 +12,7 @@
     *   *A filegroup* is a logical unit that simplifies database administration.
 diffrence among.(MDF, NDF, LDF, Temp DB files and Filegroups)[https://seanmcateer.wordpress.com/2015/10/20/mdf-ndf-ldf-temp-db-files-and-filegroups/]
 
-!()[./media/pysical_layout.png]
+![](./media/pysical_layout.png)
 
 >
 You can specify initial file sizes and auto-growth parameters at the time that you create the database
@@ -39,5 +39,57 @@ control auto-growth events on a per-filegroup level. With *AUTOGROW_SINGLE_FILE*
 option, SQL Server 2016 grows the single file in the filegroup when needed. With *AUTOGROW_ALL_FILES* , SQL
 Server grows all files in the filegroup whenever one of the files is out of space.
 - When using SQL Server releases prior to 2016, you can control this behavior with the instance-level trace flag T1117
+
+## Data Pages and Data Rows
+- The space in the database is divided into logical 8KB pages.
+- These pages are continuously numbered starting with zero, and they can be referenced by specifying a file ID and page number
+
+#### DATA STORAGE IN SQL SERVER
+- row-based storage
+- columnstore indexes and column-based storage (SQL Server 2012)
+- set of in-memory (SQL Server 2014)
+
+*Data Page Structure*:
+![](./media/pageStruc.png)
+
+- A 96-byte page header contains various pieces of information about a page, such as the object to which
+the page belongs, the number of rows and amount of free space available on the page, links to the previous
+and next pages if the page is in an index-page chain
+- Data Row: Is the area where actual data is stored. 
+- slot array(Offset Array):  which is a block of two-byte entries indicating the offset at which the corresponding data rows begin on the page
+
+``` sql
+sys.dm_db_database_page_allocation
+``` 
+
+## Large Objects Storage
+
+## SELECT * and I/O
+There are plenty of reasons why selecting all columns from a table with the SELECT * operator is not a good idea.
+-  It increases network traffic by transmitting columns that the client application does not need.
+-  makes query performance tuning more complicated
+-  it introduces side effects when the table schema changes
+
+This is especially important with row-overflow and LOB storage, when one row can have data stored in multiple data pages. SQL Server needs to read all of those pages, which can significantly decrease the performance of queries
+
+## Extents and Allocation Map Pages
+SQL Server logically groups eight pages into 64 KB units called extents
+
+Types of Extents:
+- *mixed extents* store data that belongs to different objects
+- *uniform extents* store the data for the same object
+
+By default, when a new object is created, SQL Server stores the first eight object pages in mixed extents.
+
+SQL Server uses a special kind of pages, called **allocation maps**, to track extent and page usage in a file
+
+Types of Allocation Maps:
+- Global allocation map (GAM) pages 
+    * track if extents have been allocated by any objects
+    * The data is represented as bitmaps, where each bit indicates the allocation status of an extent. Zero bits indicate that the corresponding extents are in use. The bits with a value of one indicate that the corresponding extents are free
+    * Every GAM page covers about *64,000 extents*, or almost 4 GB of data. This means that every database file has one GAM page for about 4 GB of file size
+
+- Shared global allocation map (SGAM) pages
+    * track information about mixed extents. Similar to GAM pages
 
 
